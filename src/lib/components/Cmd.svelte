@@ -1,6 +1,13 @@
 <script>
-  export let env
-  export let cmd
+  import Btn from './Btn.svelte'
+
+  export let k, f
 </script>
 
-<button on:click={env[cmd]()}>{cmd}</button>
+<Btn
+  on:click={() => {
+    f()
+  }}
+>
+  {k}
+</Btn>

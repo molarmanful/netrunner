@@ -1,36 +1,68 @@
-export default class {
-  constructor() {
-    this.stack = []
+import { writable } from 'svelte/store'
 
-    this.cmds = ['+', '-', '*', '/', '%', '**']
+export default class Env {
+  constructor() {
+    this.stack = writable([])
+
+    this.cmds = {
+      _: () => this.f(a => -a),
+      '+': () => this.f((a, b) => a + b),
+      '-': () => this.f((a, b) => a - b),
+      '*': () => this.f((a, b) => a * b),
+      '/': () => this.f((a, b) => a / b),
+      '%': () => this.f((a, b) => a % b),
+      '**': () => this.f((a, b) => a ** b),
+      dup: () => (console.log(this.stack$), this.push(this.at(-1))),
+      pop: () => this.pop(),
+    }
+  }
+
+  static from(s) {
+    let env = new Env()
+    env.stack.set(s)
+    return env
   }
 
   f(f) {
-    let a = f.length
-    this.stack.push(f(...this.stack.splice(-a, a)))
+    let n = f.length
+    this.checkLen(n)
+    this.push(f(...this.last(n)))
   }
 
-  ['+']() {
-    return this.f((a, b) => a + b)
+  push(a) {
+    this.stack.update(xs => [...xs, a])
   }
 
-  ['-']() {
-    return this.f((a, b) => a - b)
+  pop() {
+    let a
+    this.checkLen(1)
+    this.stack.update(xs => ((a = xs.pop()), xs))
+    return a
   }
 
-  ['*']() {
-    return this.f((a, b) => a * b)
+  at(i) {
+    this.checkLen(i)
+    return this.stack$.at(i)
   }
 
-  ['/']() {
-    return this.f((a, b) => a / b)
+  checkLen(n) {
+    let l = this.len
+    if (l < n) throw new Error(`stack len ${l} < ${n}`)
   }
 
-  ['%']() {
-    return this.f((a, b) => a % b)
+  get len() {
+    return this.stack$.length
   }
 
-  ['**']() {
-    return this.f((a, b) => a ** b)
+  get stack$() {
+    let a
+    this.stack.subscribe(xs => (a = xs))()
+    return a
+  }
+
+  last(n) {
+    let a
+    this.stack.update(xs => ((a = xs.splice(-n, n)), xs))
+    return a
   }
 }
