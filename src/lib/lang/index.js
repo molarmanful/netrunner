@@ -6,6 +6,8 @@ export default class Env {
     this.code = writable([])
     this.scope = writable({})
     this.err = writable('')
+    this.back = void 0
+    this.next = void 0
 
     Env.patch()
     this.types = {
@@ -40,23 +42,57 @@ export default class Env {
     }
   }
 
-  step(f) {
+  step(t, f) {
     this.err.set('')
     try {
+      let a = this.save()
       f()
+      this.code.update(xs => xs.concat([t]))
+      this.back = a
+      this.next = void 0
     } catch (e) {
       this.err.set(e.message)
     }
   }
 
-  static from(s) {
-    let env = new Env()
-    env.stack.set(s)
-    return env
+  undo() {
+    if (this.back) {
+      let a = this.save()
+      console.log('undo', this.back)
+      this.load(this.back)
+      this.next = a
+    }
+  }
+
+  redo() {
+    if (this.next) {
+      let a = this.save()
+      console.log('redo', this.next)
+      this.load(this.next)
+      this.back = a
+    }
+  }
+
+  save() {
+    return {
+      stack: [...this.stack$],
+      code: [...this.code$],
+      scope: { ...this.scope$ },
+      back: this.back && { ...this.back },
+      next: this.next && { ...this.next },
+    }
+  }
+
+  load({ stack, code, scope, back, next }) {
+    this.stack.set(stack)
+    this.code.set(code)
+    this.scope.set(scope)
+    this.back = back
+    this.next = next
   }
 
   showCode() {
-    return 'CODE:\n\n' + this.scope$.map(x => x.show()).join`\n`
+    return 'CODE:\n\n' + this.code$.map(x => x.show()).join` `
   }
 
   showStack() {

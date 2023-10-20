@@ -6,7 +6,7 @@
 
 <Btn
   on:click={() => {
-    env.step(f)
+    env.step(new env.types.Cmd(k), f)
   }}
 >
   {k}
