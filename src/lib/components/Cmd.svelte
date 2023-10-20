@@ -1,12 +1,12 @@
 <script>
   import Btn from './Btn.svelte'
 
-  export let k, f
+  export let env, k, f
 </script>
 
 <Btn
   on:click={() => {
-    f()
+    env.step(f)
   }}
 >
   {k}

@@ -3,17 +3,33 @@ import { writable } from 'svelte/store'
 export default class Env {
   constructor() {
     this.stack = writable([])
+    this.code = writable([])
+    this.err = writable('')
 
     this.cmds = {
+      '.': () => this.f((a, b) => +(a + '.' + b)),
       _: () => this.f(a => -a),
-      '+': () => this.f((a, b) => a + b),
+      '+': () => this.f((a, b) => a - -b),
+      '++': () => this.f((a, b) => '' + a + b),
       '-': () => this.f((a, b) => a - b),
       '*': () => this.f((a, b) => a * b),
       '/': () => this.f((a, b) => a / b),
       '%': () => this.f((a, b) => a % b),
       '**': () => this.f((a, b) => a ** b),
-      dup: () => (console.log(this.stack$), this.push(this.at(-1))),
+      dup: () => this.fs(a => [a, a]),
       pop: () => this.pop(),
+      swap: () => this.fs((a, b) => [b, a]),
+      rot: () => this.fs((a, b, c) => [b, c, a]),
+      rot_: () => this.fs((a, b, c) => [c, a, b]),
+    }
+  }
+
+  step(f) {
+    this.err.set('')
+    try {
+      f()
+    } catch (e) {
+      this.err.set(e.message)
     }
   }
 
@@ -23,14 +39,24 @@ export default class Env {
     return env
   }
 
+  showStack() {
+    return 'STACK:\n\n' + this.stack$.map(x => JSON.stringify(x)).join`\n`
+  }
+
   f(f) {
     let n = f.length
     this.checkLen(n)
     this.push(f(...this.last(n)))
   }
 
-  push(a) {
-    this.stack.update(xs => [...xs, a])
+  fs(f) {
+    let n = f.length
+    this.checkLen(n)
+    this.push(...f(...this.last(n)))
+  }
+
+  push(...a) {
+    this.stack.update(xs => xs.concat(a))
   }
 
   pop() {
@@ -55,8 +81,18 @@ export default class Env {
   }
 
   get stack$() {
+    return Env.getSub(this.stack)
+  }
+
+  get code$() {
+    return Env.getSub(this.code)
+  }
+
+  static getSub(s) {
     let a
-    this.stack.subscribe(xs => (a = xs))()
+    s.subscribe(xs => {
+      a = xs
+    })()
     return a
   }
 

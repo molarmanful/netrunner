@@ -3,7 +3,7 @@
   import Env from '$lib/lang'
 
   let env = new Env()
-  let { stack } = env
+  let { stack, code, err } = env
 
   let num = false
   let n = 0
@@ -13,31 +13,39 @@
   <title>netrunner</title>
 </svelte:head>
 
-<Btn
-  on:click={() => {
-    if (!num) num = true
-    else {
-      env.push(n)
-      num = false
-    }
-  }}
->
-  NUM
-</Btn>
+<main class="p-4">
+  <div class="flex gap-4">
+    <Btn
+      on:click={() => {
+        if (!num) num = true
+        else {
+          env.step(() => {
+            env.push(n)
+          })
+          num = false
+        }
+      }}
+    >
+      NUM
+    </Btn>
+    {#each Object.entries(env.cmds) as [k, f]}
+      <Cmd {env} {f} {k} />
+    {/each}
+  </div>
 
-{#if num}
-  {n}
-  <input max="27" min="0" type="range" bind:value={n} />
-{/if}
+  <br />
 
-{#each Object.entries(env.cmds) as [k, f]}
-  <Cmd {f} {k} />
-{/each}
+  {#if num}
+    {n}
+    <input max="27" min="0" type="range" bind:value={n} />
+  {/if}
 
-<br />
-<br />
-STACK:
-<br />
-<pre>
-{$stack.join`\n`}
-</pre>
+  <hr />
+  <br />
+  {#if $err}
+    ERR: {$err}
+  {/if}
+  <pre>
+{($stack, env.showStack())}
+  </pre>
+</main>
