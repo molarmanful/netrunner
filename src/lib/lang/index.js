@@ -4,23 +4,39 @@ export default class Env {
   constructor() {
     this.stack = writable([])
     this.code = writable([])
+    this.scope = writable({})
     this.err = writable('')
 
+    Env.patch()
+    this.types = {
+      Fn,
+      Cmd,
+    }
+
     this.cmds = {
-      '.': () => this.f((a, b) => +(a + '.' + b)),
       _: () => this.f(a => -a),
+      '.': () => this.f((a, b) => +(a + '.' + b)),
       '+': () => this.f((a, b) => a - -b),
-      '++': () => this.f((a, b) => '' + a + b),
       '-': () => this.f((a, b) => a - b),
       '*': () => this.f((a, b) => a * b),
       '/': () => this.f((a, b) => a / b),
       '%': () => this.f((a, b) => a % b),
       '**': () => this.f((a, b) => a ** b),
+      '++': () => this.f((a, b) => '' + a + b),
       dup: () => this.fs(a => [a, a]),
       pop: () => this.pop(),
       swap: () => this.fs((a, b) => [b, a]),
       rot: () => this.fs((a, b, c) => [b, c, a]),
       rot_: () => this.fs((a, b, c) => [c, a, b]),
+    }
+  }
+
+  static patch() {
+    String.prototype.show = function () {
+      return JSON.stringify(this)
+    }
+    Number.prototype.show = function () {
+      return '' + this
     }
   }
 
@@ -39,8 +55,20 @@ export default class Env {
     return env
   }
 
+  showCode() {
+    return 'CODE:\n\n' + this.scope$.map(x => x.show()).join`\n`
+  }
+
   showStack() {
-    return 'STACK:\n\n' + this.stack$.map(x => JSON.stringify(x)).join`\n`
+    return 'STACK:\n\n' + this.stack$.map(x => x.show()).join`\n`
+  }
+
+  showScope() {
+    return (
+      'SCOPE:\n\n' +
+      Object.entries(this.scope$).map(([k, v]) => k + ' := ' + v.show())
+        .join`\n`
+    )
   }
 
   f(f) {
@@ -53,6 +81,10 @@ export default class Env {
     let n = f.length
     this.checkLen(n)
     this.push(...f(...this.last(n)))
+  }
+
+  setVar(k, v) {
+    this.scope.update(xs => ({ ...xs, [k]: v }))
   }
 
   push(...a) {
@@ -84,6 +116,10 @@ export default class Env {
     return Env.getSub(this.stack)
   }
 
+  get scope$() {
+    return Env.getSub(this.scope)
+  }
+
   get code$() {
     return Env.getSub(this.code)
   }
@@ -100,5 +136,33 @@ export default class Env {
     let a
     this.stack.update(xs => ((a = xs.splice(-n, n)), xs))
     return a
+  }
+}
+
+class Fn {
+  constructor(f) {
+    this.x = f
+  }
+
+  toString() {
+    return this.x.map(x => x.toString()).join`\n`
+  }
+
+  show() {
+    return `{${this.x.map(x => x.show()).join` `}}`
+  }
+}
+
+class Cmd {
+  constructor(f) {
+    this.x = f
+  }
+
+  toString() {
+    return this.x
+  }
+
+  show() {
+    return this.x
   }
 }
