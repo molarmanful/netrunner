@@ -100,7 +100,7 @@
     <input autofocus type="text" bind:value={vname} />
     <Btn
       on:click={() => {
-        env.step('$' + vname, () => {
+        env.step(new env.types.Cmd('$' + vname), () => {
           let v = env.scope$[vname]
           if (!vname) throw new Error(`empty var`)
           if (v == void 0) throw new Error(`undefined var ${vname}`)
@@ -117,7 +117,7 @@
     <input autofocus type="text" bind:value={vname} />
     <Btn
       on:click={() => {
-        env.step('=$' + vname, () => {
+        env.step(new env.types.Cmd('=$' + vname), () => {
           if (!vname) throw new Error(`empty var`)
           env.setVar(vname, env.pop())
         })
@@ -133,7 +133,13 @@
   {#if $err}
     <span class="c-red">ERR: {$err}</span>
   {/if}
-  <pre>{($code, env.showCode())}</pre>
+  CODE:
+  <br />
+  <div class="flex gap-4">
+    {#each $code as c}
+      <Btn>{c.show()}</Btn>
+    {/each}
+  </div>
   <br />
   <div class="flex">
     <pre class="flex-1">{($stack, env.showStack())}</pre>

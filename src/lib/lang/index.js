@@ -40,6 +40,9 @@ export default class Env {
     Number.prototype.show = function () {
       return '' + this
     }
+    Array.prototype.clone = function () {
+      return this.map(x => (x.clone ? x.clone() : x))
+    }
   }
 
   step(t, f) {
@@ -58,7 +61,6 @@ export default class Env {
   undo() {
     if (this.back) {
       let a = this.save()
-      console.log('undo', this.back)
       this.load(this.back)
       this.next = a
     }
@@ -67,7 +69,6 @@ export default class Env {
   redo() {
     if (this.next) {
       let a = this.save()
-      console.log('redo', this.next)
       this.load(this.next)
       this.back = a
     }
@@ -75,9 +76,14 @@ export default class Env {
 
   save() {
     return {
-      stack: [...this.stack$],
-      code: [...this.code$],
-      scope: { ...this.scope$ },
+      stack: this.stack$.clone(),
+      code: [...this.code$].clone(),
+      scope: Object.fromEntries(
+        Object.entries(this.scope$).map(([k, v]) => [
+          k,
+          v.clone ? v.clone() : v,
+        ])
+      ),
       back: this.back && { ...this.back },
       next: this.next && { ...this.next },
     }
@@ -187,6 +193,10 @@ class Fn {
   show() {
     return `{${this.x.map(x => x.show()).join` `}}`
   }
+
+  clone() {
+    return new Fn(this.x.clone())
+  }
 }
 
 class Cmd {
@@ -200,5 +210,9 @@ class Cmd {
 
   show() {
     return this.x
+  }
+
+  clone() {
+    return new Cmd(this.x)
   }
 }
