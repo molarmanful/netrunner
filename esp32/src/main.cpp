@@ -1,22 +1,26 @@
 #include "deps.h"
 
-// RingBuf<uint8_t, 3> r;
-uint8_t a, b;
+uint16_t reading, avg, sum;
 
 void setup() { Serial.begin(9600); }
 
 void loop() {
-  b = analogRead(15) * 9 / 4095;
-  // r.pushOverwrite(analogRead(15) * 9 / 4095);
-  //
-  // uint16_t sum = 0;
-  // for (int i = 0; i < r.size(); i++) {
-  //   sum += r[i];
-  // }
-  // b = sum / r.size();
-
-  if (a != b) {
-    a = b;
-    Serial.println(b);
+  static unsigned int i = 0;
+  reading = BfButtonManager::printReading(15);
+  if (reading > 100) {
+    sum += reading;
+    if (i == 4) {
+      avg = sum / 5;
+      Serial.print("Average Reading: ");
+      Serial.println(avg);
+      sum = 0;
+    }
+    i++;
+    if (i > 4)
+      i = 0;
+  } else {
+    sum = 0;
+    i = 0;
   }
+  delay(100);
 }
