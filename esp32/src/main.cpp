@@ -1,26 +1,32 @@
 #include "deps.h"
 
-uint16_t reading, avg, sum;
+BfButtonManager man(15, 5);
+BfButton btn0(BfButton::ANALOG_BUTTON_ARRAY, 0);
+BfButton btn1(BfButton::ANALOG_BUTTON_ARRAY, 1);
+BfButton btn2(BfButton::ANALOG_BUTTON_ARRAY, 2);
+BfButton btn3(BfButton::ANALOG_BUTTON_ARRAY, 3);
+BfButton btn4(BfButton::ANALOG_BUTTON_ARRAY, 4);
 
-void setup() { Serial.begin(9600); }
-
-void loop() {
-  static unsigned int i = 0;
-  reading = BfButtonManager::printReading(15);
-  if (reading > 100) {
-    sum += reading;
-    if (i == 4) {
-      avg = sum / 5;
-      Serial.print("Average Reading: ");
-      Serial.println(avg);
-      sum = 0;
-    }
-    i++;
-    if (i > 4)
-      i = 0;
-  } else {
-    sum = 0;
-    i = 0;
-  }
-  delay(100);
+void pressH(BfButton *btn, BfButton::press_pattern_t pat) {
+  Serial.print(btn->getID());
+  Serial.print(" ");
+  BfButtonManager::printReading(15);
 }
+
+void setup() {
+  Serial.begin(9600);
+
+  btn0.onPress(pressH);
+  btn1.onPress(pressH);
+  btn2.onPress(pressH);
+  btn3.onPress(pressH);
+  btn4.onPress(pressH);
+
+  man.addButton(&btn0, 300, 550);
+  man.addButton(&btn1, 560, 900);
+  man.addButton(&btn2, 910, 1200);
+  man.addButton(&btn3, 1210, 2000);
+  man.addButton(&btn4, 2010, 4096);
+}
+
+void loop() { man.loop(); }
