@@ -9,7 +9,6 @@ BfButton btn4(BfButton::ANALOG_BUTTON_ARRAY, 4);
 
 void pressH(BfButton *btn, BfButton::press_pattern_t pat) {
   Serial.print(btn->getID());
-  Serial.print(" ");
 }
 
 void setup() {
