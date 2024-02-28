@@ -19,7 +19,7 @@ func main() {
 	exec.Command("stty", "-F", "/dev/tty", "cbreak", "min", "1").Run()
 	exec.Command("stty", "-F", "/dev/tty", "-echo").Run()
 
-	env := Env{big.NewInt(0), arraystack.New(), map[byte]any{}}
+	env := Env{big.NewInt(0), arraystack.New(), 0, map[byte]any{}, map[byte]string{}, ModeMacro{0, ""}}
 
 	fmt.Print("\033[H\033[2J")
 	env.show()
@@ -45,7 +45,7 @@ func main() {
 	for {
 		os.Stdin.Read(ch)
 		fmt.Print("\033[H\033[2J")
-		env.kint(ch[0])
+		env.kint(rune(ch[0]))
 		env.show()
 	}
 }

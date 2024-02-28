@@ -5,14 +5,23 @@ import (
 	"log"
 	"math/big"
 	"os"
+	"strconv"
 
 	"github.com/emirpasic/gods/stacks/arraystack"
 )
 
 type Env struct {
-	cur   *big.Int
-	stack *arraystack.Stack
-	vars  map[byte]any
+	cur       *big.Int
+	stack     *arraystack.Stack
+	mode      int
+	vars      map[byte]any
+	macros    map[byte]string
+	macro_cur ModeMacro
+}
+
+type ModeMacro struct {
+	name  byte
+	macro string
 }
 
 var _1 = big.NewInt(1)
@@ -54,7 +63,15 @@ func (env *Env) kext(x rune) {
 	}
 }
 
-func (env *Env) kint(x byte) {
+func (env *Env) kint(x rune) {
+	fmt.Println("KEY:", string(x))
+
+	// TODO: make sure ch inputs are captured in macros
+	switch env.mode {
+	case 1:
+		env.macro_cur.macro += string(x)
+	}
+
 	switch x {
 
 	case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
@@ -113,10 +130,13 @@ func (env *Env) kint(x byte) {
 		})
 
 	case 10:
-		a, _ := env.stack.Peek()
-		b := new(big.Int)
-		b.Set(a.(*big.Int))
-		env.stack.Push(b)
+		env.arg(1, func(xs []any) {
+			a := xs[0]
+			b := new(big.Int)
+			b.Set(a.(*big.Int))
+			env.stack.Push(a)
+			env.stack.Push(b)
+		})
 
 	case 127:
 		env.stack.Pop()
@@ -127,13 +147,20 @@ func (env *Env) kint(x byte) {
 			env.stack.Push(xs[1])
 		})
 
+	case '@':
+		env.arg(3, func(xs []any) {
+			env.stack.Push(xs[1])
+			env.stack.Push(xs[0])
+			env.stack.Push(xs[2])
+		})
+
 	case '=':
 		ch := make([]byte, 1)
 		os.Stdin.Read(ch)
 		a, _ := env.stack.Pop()
 		env.vars[ch[0]] = a
 
-	case '@':
+	case ':':
 		ch := make([]byte, 1)
 		os.Stdin.Read(ch)
 		if a, ok := env.vars[ch[0]]; ok {
@@ -142,8 +169,31 @@ func (env *Env) kint(x byte) {
 			log.Println("undef var -", string(ch[0]))
 		}
 
+	case ',':
+		if env.mode != 1 {
+			env.mode = 1
+			ch := make([]byte, 1)
+			os.Stdin.Read(ch)
+			env.macro_cur.name = ch[0]
+			env.macro_cur.macro = ""
+		} else {
+			env.mode = 0
+			env.macros[env.macro_cur.name] = env.macro_cur.macro[:len(env.macro_cur.macro)-1]
+		}
+
+	case '.':
+		ch := make([]byte, 1)
+		os.Stdin.Read(ch)
+		if m, ok := env.macros[ch[0]]; ok {
+			for _, x := range m {
+				env.kint(x)
+			}
+		} else {
+			log.Println("undef macro -", string(ch[0]))
+		}
+
 	default:
-		log.Println(x)
+		log.Println("undef key -", x)
 	}
 }
 
@@ -165,12 +215,34 @@ func (env *Env) arg(n int, f fn_arg) {
 }
 
 func (env *Env) show() {
+
 	fmt.Println("CUR:", env.cur)
-	fmt.Println("VARS:")
+
+	fmt.Println("MODE:", func() string {
+		switch env.mode {
+		case 1:
+			return "MACRO"
+		default:
+			return "NORMAL"
+		}
+	}())
+
+	switch env.mode {
+	case 1:
+		fmt.Println("\nRECORDING ", string(env.macro_cur.name), ":", strconv.Quote(env.macro_cur.macro))
+	}
+
+	fmt.Println("\nVARS:")
 	for k, v := range env.vars {
 		fmt.Println(string(k), ":=", v)
 	}
-	fmt.Println("STACK:")
+
+	fmt.Println("\nMACROS:")
+	for k, v := range env.macros {
+		fmt.Println(string(k), ":=", strconv.Quote(v))
+	}
+
+	fmt.Println("\nSTACK:")
 	it := env.stack.Iterator()
 	for it.End(); it.Prev(); {
 		fmt.Println(it.Value())
