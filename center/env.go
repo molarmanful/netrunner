@@ -39,27 +39,26 @@ func (env *Env) kext(x rune) {
 		env.stack.Push(a)
 
 	case '2':
-		if env.stack.Size() < 2 {
-			log.Println("need 2 items")
-		} else {
-			b, _ := env.stack.Pop()
-			a, _ := env.stack.Pop()
+		env.arg(2, func(xs []any) {
+			a := xs[1].(*big.Int)
+			b := xs[0].(*big.Int)
 			c := new(big.Int)
-			c.SetString(a.(*big.Int).Text(10)+b.(*big.Int).Text(10), 10)
+			c.SetString(a.Text(10)+b.Text(10), 10)
 			env.stack.Push(c)
-		}
+		})
 
 	case '3':
-		if b, ok := env.stack.Pop(); ok {
-			if a, ok := env.stack.Pop(); ok {
-				env.stack.Push(a.(int) + b.(int))
-			}
-		}
+		env.arg(2, func(xs []any) {
+			a := xs[1].(*big.Int)
+			b := xs[0].(*big.Int)
+			env.stack.Push(a.Add(a, b))
+		})
 
 	case '4':
-		if a, ok := env.stack.Pop(); ok {
-			env.stack.Push(-a.(int))
-		}
+		env.arg(1, func(xs []any) {
+			a := xs[0].(*big.Int)
+			env.stack.Push(a.Neg(a))
+		})
 
 	default:
 	}
