@@ -34,7 +34,9 @@ func (env *Env) kext(x rune) {
 		env.cur.Add(env.cur, _1).Mod(env.cur, _10)
 
 	case '1':
-		env.stack.Push(env.cur)
+		a := new(big.Int)
+		a.Set(env.cur)
+		env.stack.Push(a)
 
 	case '2':
 		if env.stack.Size() < 2 {
