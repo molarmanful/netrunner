@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"math/big"
-	"os"
 	"strconv"
 
 	"github.com/emirpasic/gods/stacks/arraystack"
@@ -13,19 +12,31 @@ import (
 type Env struct {
 	cur       *big.Int
 	stack     *arraystack.Stack
+	cmds      string
 	mode      int
-	vars      map[byte]any
-	macros    map[byte]string
-	macro_cur ModeMacro
+	vars      map[rune]any
+	macros    map[rune]string
+	macro_rec ModeMacro
+	stop      bool
 }
 
 type ModeMacro struct {
-	name  byte
+	name  rune
 	macro string
 }
 
+var _0 = big.NewInt(0)
 var _1 = big.NewInt(1)
 var _10 = big.NewInt(10)
+
+func (env *Env) loop() {
+	for {
+		x := env.waitch()
+		fmt.Print("\033[H\033[2J")
+		env.kint(x)
+		env.show()
+	}
+}
 
 func (env *Env) kext(x rune) {
 	switch x {
@@ -64,15 +75,13 @@ func (env *Env) kext(x rune) {
 	}
 }
 
-func (env *Env) kint(x rune, m string) {
-tco:
-	fmt.Println("KEY:", string(x))
-
-	// TODO: make sure ch inputs are captured in macros
-	switch env.mode {
-	case 1:
-		env.macro_cur.macro += string(x)
+func (env *Env) kint(x rune) {
+	if env.stop {
+		env.stop = false
+		return
 	}
+
+	fmt.Println("KEY:", string(x))
 
 	switch x {
 
@@ -119,9 +128,13 @@ tco:
 		env.arg(2, func(xs []any) {
 			a := xs[1].(*big.Int)
 			b := xs[0].(*big.Int)
-			a.DivMod(a, b, b)
-			env.stack.Push(a)
-			env.stack.Push(b)
+			if b.Cmp(_0) != 0 {
+				a.DivMod(a, b, b)
+				env.stack.Push(a)
+				env.stack.Push(b)
+			} else {
+				log.Println("div by zero")
+			}
 		})
 
 	case '^':
@@ -157,63 +170,51 @@ tco:
 		})
 
 	case '=':
-		c, s := env.readch(m)
-		m = s
+		x = env.waitch()
 		a, _ := env.stack.Pop()
-		env.vars[c] = a
+		env.vars[x] = a
 
 	case ':':
-		c, s := env.readch(m)
-		m = s
-		if a, ok := env.vars[c]; ok {
+		x = env.waitch()
+		if a, ok := env.vars[x]; ok {
 			env.stack.Push(a)
 		} else {
-			log.Println("undef var -", string(c))
+			log.Println("undef var -", string(x))
 		}
 
 	case ',':
 		if env.mode != 1 {
 			env.mode = 1
-			c, s := env.readch(m)
-			m = s
-			env.macro_cur.name = c
-			env.macro_cur.macro = ""
+			x = env.waitch()
+			env.macro_rec.name = x
+			env.macro_rec.macro = ""
 		} else {
 			env.mode = 0
-			env.macros[env.macro_cur.name] = env.macro_cur.macro[:len(env.macro_cur.macro)-1]
+			env.macros[env.macro_rec.name] = env.macro_rec.macro[:len(env.macro_rec.macro)-1]
 		}
 
 	case '.':
-		c, s := env.readch(m)
-		m = s
-		if m1, ok := env.macros[c]; ok {
-			m = m1 + m
+		x = env.waitch()
+		if m1, ok := env.macros[x]; ok {
+			env.cmds = m1 + env.cmds
 		} else {
-			log.Println("undef macro -", string(c))
+			log.Println("undef macro -", string(x))
 		}
 
 	default:
 		log.Println("undef key -", x)
 	}
-
-	if m == "" {
-		return
-	}
-	x = rune(m[0])
-	m = m[1:]
-	goto tco
 }
 
-func (env *Env) readch(m string) (byte, string) {
-	if m == "" {
-		c := make([]byte, 1)
-		os.Stdin.Read(c)
-		if env.mode == 1 {
-			env.macro_cur.macro += string(c[0])
-		}
-		return c[0], m
+func (env *Env) waitch() rune {
+	for env.cmds == "" {
 	}
-	return m[0], m[1:]
+	c := rune(env.cmds[0])
+	env.cmds = env.cmds[1:]
+	if env.mode == 1 {
+		env.macro_rec.macro += string(c)
+	}
+	return c
 }
 
 type fn_arg func([]any)
@@ -235,7 +236,7 @@ func (env *Env) arg(n int, f fn_arg) {
 
 func (env *Env) show() {
 
-	fmt.Println("CUR:", env.cur)
+	fmt.Println("CMDS:", strconv.Quote(env.cmds))
 
 	fmt.Println("MODE:", func() string {
 		switch env.mode {
@@ -248,7 +249,7 @@ func (env *Env) show() {
 
 	switch env.mode {
 	case 1:
-		fmt.Println("\nRECORDING ", string(env.macro_cur.name), ":", strconv.Quote(env.macro_cur.macro))
+		fmt.Println("\nRECORDING ", string(env.macro_rec.name), ":", strconv.Quote(env.macro_rec.macro))
 	}
 
 	fmt.Println("\nVARS:")
