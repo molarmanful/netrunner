@@ -16,7 +16,7 @@ func main() {
 	exec.Command("stty", "-F", "/dev/tty", "-echo").Run()
 
 	env := NewEnv()
-	env.Clr()
+	Clr()
 	env.Show()
 
 	// go func() {

@@ -48,7 +48,7 @@ var _10 = big.NewInt(10)
 func (env *Env) Loop() {
 	for {
 		x := env.waitch()
-		env.Clr()
+		Clr()
 		env.KInt(x)
 		env.Show()
 	}
@@ -288,6 +288,6 @@ func (env *Env) Show() {
 	})
 }
 
-func (env *Env) Clr() {
+func Clr() {
 	fmt.Print("\033[H\033[2J")
 }
