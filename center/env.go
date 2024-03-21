@@ -13,12 +13,27 @@ import (
 type Env struct {
 	cur       *big.Int
 	stack     *arraystack.Stack
+	stacks    *KeyMap[rune, *arraystack.Stack]
 	cmds      string
 	cmds_mu   sync.Mutex
 	mode      int
-	vars      map[rune]any
-	macros    map[rune]string
+	vars      *KeyMap[rune, any]
+	macros    *KeyMap[rune, string]
 	macro_rec ModeMacro
+}
+
+func NewEnv() *Env {
+	env := &Env{
+		stack:     arraystack.New(),
+		stacks:    NewKeyMap[rune, *arraystack.Stack](),
+		cmds:      "",
+		mode:      0,
+		vars:      NewKeyMap[rune, any](),
+		macros:    NewKeyMap[rune, string](),
+		macro_rec: ModeMacro{0, ""},
+	}
+	env.stacks.Set('0', env.stack)
+	return env
 }
 
 type ModeMacro struct {
@@ -30,53 +45,16 @@ var _0 = big.NewInt(0)
 var _1 = big.NewInt(1)
 var _10 = big.NewInt(10)
 
-func (env *Env) loop() {
+func (env *Env) Loop() {
 	for {
 		x := env.waitch()
-		env.clr()
-		env.kint(x)
-		env.show()
+		env.Clr()
+		env.KInt(x)
+		env.Show()
 	}
 }
 
-func (env *Env) kext(x rune) {
-	switch x {
-
-	case '0':
-		env.cur.Add(env.cur, _1).Mod(env.cur, _10)
-
-	case '1':
-		a := new(big.Int)
-		a.Set(env.cur)
-		env.stack.Push(a)
-
-	case '2':
-		env.arg(2, func(xs []any) {
-			a := xs[1].(*big.Int)
-			b := xs[0].(*big.Int)
-			c := new(big.Int)
-			c.SetString(a.Text(10)+b.Text(10), 10)
-			env.stack.Push(c)
-		})
-
-	case '3':
-		env.arg(2, func(xs []any) {
-			a := xs[1].(*big.Int)
-			b := xs[0].(*big.Int)
-			env.stack.Push(a.Add(a, b))
-		})
-
-	case '4':
-		env.arg(1, func(xs []any) {
-			a := xs[0].(*big.Int)
-			env.stack.Push(a.Neg(a))
-		})
-
-	default:
-	}
-}
-
-func (env *Env) kint(x rune) {
+func (env *Env) KInt(x rune) {
 	fmt.Println("KEY:", string(x))
 
 	switch x {
@@ -85,7 +63,7 @@ func (env *Env) kint(x rune) {
 		env.stack.Push(big.NewInt(int64(x - 48)))
 
 	case ' ':
-		env.arg(2, func(xs []any) {
+		env.Arg(2, func(xs []any) {
 			a := xs[1].(*big.Int)
 			b := xs[0].(*big.Int)
 			c := new(big.Int)
@@ -94,34 +72,34 @@ func (env *Env) kint(x rune) {
 		})
 
 	case '_':
-		env.arg(1, func(xs []any) {
+		env.Arg(1, func(xs []any) {
 			a := xs[0].(*big.Int)
 			env.stack.Push(a.Neg(a))
 		})
 
 	case '+':
-		env.arg(2, func(xs []any) {
+		env.Arg(2, func(xs []any) {
 			a := xs[1].(*big.Int)
 			b := xs[0].(*big.Int)
 			env.stack.Push(a.Add(a, b))
 		})
 
 	case '-':
-		env.arg(2, func(xs []any) {
+		env.Arg(2, func(xs []any) {
 			a := xs[1].(*big.Int)
 			b := xs[0].(*big.Int)
 			env.stack.Push(a.Sub(a, b))
 		})
 
 	case '*':
-		env.arg(2, func(xs []any) {
+		env.Arg(2, func(xs []any) {
 			a := xs[1].(*big.Int)
 			b := xs[0].(*big.Int)
 			env.stack.Push(a.Mul(a, b))
 		})
 
 	case '/':
-		env.arg(2, func(xs []any) {
+		env.Arg(2, func(xs []any) {
 			a := xs[1].(*big.Int)
 			b := xs[0].(*big.Int)
 			if b.Cmp(_0) != 0 {
@@ -134,14 +112,14 @@ func (env *Env) kint(x rune) {
 		})
 
 	case '^':
-		env.arg(2, func(xs []any) {
+		env.Arg(2, func(xs []any) {
 			a := xs[1].(*big.Int)
 			b := xs[0].(*big.Int)
 			env.stack.Push(a.Exp(a, b, nil))
 		})
 
 	case 10:
-		env.arg(1, func(xs []any) {
+		env.Arg(1, func(xs []any) {
 			a := xs[0]
 			b := new(big.Int)
 			b.Set(a.(*big.Int))
@@ -153,26 +131,29 @@ func (env *Env) kint(x rune) {
 		env.stack.Pop()
 
 	case '\\':
-		env.arg(2, func(xs []any) {
+		env.Arg(2, func(xs []any) {
 			env.stack.Push(xs[0])
 			env.stack.Push(xs[1])
 		})
 
 	case '@':
-		env.arg(3, func(xs []any) {
+		env.Arg(3, func(xs []any) {
 			env.stack.Push(xs[1])
 			env.stack.Push(xs[0])
 			env.stack.Push(xs[2])
 		})
 
+	case 'c':
+		env.stack.Clear()
+
 	case '=':
 		x = env.waitch()
 		a, _ := env.stack.Pop()
-		env.vars[x] = a
+		env.vars.Set(x, a)
 
 	case ':':
 		x = env.waitch()
-		if a, ok := env.vars[x]; ok {
+		if a, ok := env.vars.Get(x); ok {
 			env.stack.Push(a)
 		} else {
 			log.Println("undef var -", string(x))
@@ -186,12 +167,12 @@ func (env *Env) kint(x rune) {
 			env.macro_rec.macro = ""
 		} else {
 			env.mode = 0
-			env.macros[env.macro_rec.name] = env.macro_rec.macro[:len(env.macro_rec.macro)-1]
+			env.macros.Set(env.macro_rec.name, env.macro_rec.macro[:len(env.macro_rec.macro)-1])
 		}
 
 	case '.':
 		x = env.waitch()
-		if m1, ok := env.macros[x]; ok {
+		if m1, ok := env.macros.Get(x); ok {
 			env.cmds_mu.Lock()
 			env.cmds = m1 + env.cmds
 			env.cmds_mu.Unlock()
@@ -201,8 +182,8 @@ func (env *Env) kint(x rune) {
 
 	case '#':
 		x = env.waitch()
-		if m1, ok := env.macros[x]; ok {
-			env.arg(1, func(xs []any) {
+		if m1, ok := env.macros.Get(x); ok {
+			env.Arg(1, func(xs []any) {
 				n := xs[0].(*big.Int)
 				for n.Cmp(_0) > 0 {
 					env.cmds_mu.Lock()
@@ -213,6 +194,25 @@ func (env *Env) kint(x rune) {
 			})
 		} else {
 			log.Println("undef macro -", string(x))
+		}
+
+	case '[':
+		x = env.waitch()
+		env.stacks.Set(x, arraystack.New())
+		*env.stacks.m[x] = *env.stack
+		*env.stack = *arraystack.New()
+
+	case ']':
+		x = env.waitch()
+		if stack, ok := env.stacks.Get(x); ok {
+			it := stack.Iterator()
+			for it.End(); it.Prev(); {
+				b := new(big.Int)
+				b.Set(it.Value().(*big.Int))
+				env.stack.Push(b)
+			}
+		} else {
+			log.Println("undef stack -", string(x))
 		}
 
 	default:
@@ -233,9 +233,9 @@ func (env *Env) waitch() rune {
 	return c
 }
 
-type fn_arg func([]any)
+type FnArg func([]any)
 
-func (env *Env) arg(n int, f fn_arg) {
+func (env *Env) Arg(n int, f FnArg) {
 	if env.stack.Size() < n {
 		log.Println("need", n, "items")
 	} else {
@@ -250,7 +250,7 @@ func (env *Env) arg(n int, f fn_arg) {
 	}
 }
 
-func (env *Env) show() {
+func (env *Env) Show() {
 
 	fmt.Println("CMDS:", strconv.Quote(env.cmds))
 
@@ -265,26 +265,29 @@ func (env *Env) show() {
 
 	switch env.mode {
 	case 1:
-		fmt.Println("\nRECORDING ", string(env.macro_rec.name), ":", strconv.Quote(env.macro_rec.macro))
+		fmt.Println("\nRECORDING", string(env.macro_rec.name), ":", strconv.Quote(env.macro_rec.macro))
 	}
 
 	fmt.Println("\nVARS:")
-	for k, v := range env.vars {
+	env.vars.Each(func(v any, k rune) {
 		fmt.Println(string(k), ":=", v)
-	}
+	})
 
 	fmt.Println("\nMACROS:")
-	for k, v := range env.macros {
+	env.macros.Each(func(v string, k rune) {
 		fmt.Println(string(k), ":=", strconv.Quote(v))
-	}
+	})
 
-	fmt.Println("\nSTACK:")
-	it := env.stack.Iterator()
-	for it.End(); it.Prev(); {
-		fmt.Println(it.Value())
-	}
+	env.stacks.Each(func(v *arraystack.Stack, k rune) {
+		fmt.Println("\nSTACK", string(k), ":")
+		it := v.Iterator()
+		for it.End(); it.Prev(); {
+			fmt.Print(it.Value(), " ")
+		}
+		fmt.Println("")
+	})
 }
 
-func (env *Env) clr() {
+func (env *Env) Clr() {
 	fmt.Print("\033[H\033[2J")
 }

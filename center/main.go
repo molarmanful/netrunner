@@ -1,11 +1,8 @@
 package main
 
 import (
-	"math/big"
 	"os"
 	"os/exec"
-
-	"github.com/emirpasic/gods/stacks/arraystack"
 )
 
 func main() {
@@ -18,18 +15,9 @@ func main() {
 	exec.Command("stty", "-F", "/dev/tty", "cbreak", "min", "1").Run()
 	exec.Command("stty", "-F", "/dev/tty", "-echo").Run()
 
-	env := Env{
-		cur:       big.NewInt(0),
-		stack:     arraystack.New(),
-		cmds:      "",
-		mode:      0,
-		vars:      map[rune]any{},
-		macros:    map[rune]string{},
-		macro_rec: ModeMacro{0, ""},
-	}
-
-	env.clr()
-	env.show()
+	env := NewEnv()
+	env.Clr()
+	env.Show()
 
 	// go func() {
 	// 	for {
@@ -58,5 +46,5 @@ func main() {
 		}
 	}()
 
-	env.loop()
+	env.Loop()
 }
