@@ -5,6 +5,7 @@ import (
 	"log"
 	"math/big"
 	"strconv"
+	"sync"
 
 	"github.com/emirpasic/gods/stacks/arraystack"
 )
@@ -13,6 +14,7 @@ type Env struct {
 	cur       *big.Int
 	stack     *arraystack.Stack
 	cmds      string
+	cmds_mu   sync.Mutex
 	mode      int
 	vars      map[rune]any
 	macros    map[rune]string
@@ -31,7 +33,7 @@ var _10 = big.NewInt(10)
 func (env *Env) loop() {
 	for {
 		x := env.waitch()
-		fmt.Print("\033[H\033[2J")
+		env.clr()
 		env.kint(x)
 		env.show()
 	}
@@ -190,7 +192,25 @@ func (env *Env) kint(x rune) {
 	case '.':
 		x = env.waitch()
 		if m1, ok := env.macros[x]; ok {
+			env.cmds_mu.Lock()
 			env.cmds = m1 + env.cmds
+			env.cmds_mu.Unlock()
+		} else {
+			log.Println("undef macro -", string(x))
+		}
+
+	case '#':
+		x = env.waitch()
+		if m1, ok := env.macros[x]; ok {
+			env.arg(1, func(xs []any) {
+				n := xs[0].(*big.Int)
+				for n.Cmp(_0) > 0 {
+					env.cmds_mu.Lock()
+					env.cmds = m1 + env.cmds
+					env.cmds_mu.Unlock()
+					n.Sub(n, _1)
+				}
+			})
 		} else {
 			log.Println("undef macro -", string(x))
 		}
@@ -204,7 +224,9 @@ func (env *Env) waitch() rune {
 	for env.cmds == "" {
 	}
 	c := rune(env.cmds[0])
+	env.cmds_mu.Lock()
 	env.cmds = env.cmds[1:]
+	env.cmds_mu.Unlock()
 	if env.mode == 1 {
 		env.macro_rec.macro += string(c)
 	}
@@ -261,4 +283,8 @@ func (env *Env) show() {
 	for it.End(); it.Prev(); {
 		fmt.Println(it.Value())
 	}
+}
+
+func (env *Env) clr() {
+	fmt.Print("\033[H\033[2J")
 }

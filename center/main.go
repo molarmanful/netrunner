@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"math/big"
 	"os"
 	"os/exec"
@@ -19,9 +18,17 @@ func main() {
 	exec.Command("stty", "-F", "/dev/tty", "cbreak", "min", "1").Run()
 	exec.Command("stty", "-F", "/dev/tty", "-echo").Run()
 
-	env := Env{big.NewInt(0), arraystack.New(), "", 0, map[rune]any{}, map[rune]string{}, ModeMacro{0, ""}}
+	env := Env{
+		cur:       big.NewInt(0),
+		stack:     arraystack.New(),
+		cmds:      "",
+		mode:      0,
+		vars:      map[rune]any{},
+		macros:    map[rune]string{},
+		macro_rec: ModeMacro{0, ""},
+	}
 
-	fmt.Print("\033[H\033[2J")
+	env.clr()
 	env.show()
 
 	// go func() {
@@ -45,11 +52,9 @@ func main() {
 		ch := make([]byte, 1)
 		for {
 			os.Stdin.Read(ch)
-			if ch[0] == 27 {
-				env.cmds = ""
-				continue
-			}
+			env.cmds_mu.Lock()
 			env.cmds += string(ch[0])
+			env.cmds_mu.Unlock()
 		}
 	}()
 
