@@ -64,7 +64,8 @@ func (env *Env) kext(x rune) {
 	}
 }
 
-func (env *Env) kint(x rune) {
+func (env *Env) kint(x rune, m string) {
+tco:
 	fmt.Println("KEY:", string(x))
 
 	// TODO: make sure ch inputs are captured in macros
@@ -156,26 +157,26 @@ func (env *Env) kint(x rune) {
 		})
 
 	case '=':
-		ch := make([]byte, 1)
-		os.Stdin.Read(ch)
+		c, s := env.readch(m)
+		m = s
 		a, _ := env.stack.Pop()
-		env.vars[ch[0]] = a
+		env.vars[c] = a
 
 	case ':':
-		ch := make([]byte, 1)
-		os.Stdin.Read(ch)
-		if a, ok := env.vars[ch[0]]; ok {
+		c, s := env.readch(m)
+		m = s
+		if a, ok := env.vars[c]; ok {
 			env.stack.Push(a)
 		} else {
-			log.Println("undef var -", string(ch[0]))
+			log.Println("undef var -", string(c))
 		}
 
 	case ',':
 		if env.mode != 1 {
 			env.mode = 1
-			ch := make([]byte, 1)
-			os.Stdin.Read(ch)
-			env.macro_cur.name = ch[0]
+			c, s := env.readch(m)
+			m = s
+			env.macro_cur.name = c
 			env.macro_cur.macro = ""
 		} else {
 			env.mode = 0
@@ -183,19 +184,36 @@ func (env *Env) kint(x rune) {
 		}
 
 	case '.':
-		ch := make([]byte, 1)
-		os.Stdin.Read(ch)
-		if m, ok := env.macros[ch[0]]; ok {
-			for _, x := range m {
-				env.kint(x)
-			}
+		c, s := env.readch(m)
+		m = s
+		if m1, ok := env.macros[c]; ok {
+			m = m1 + m
 		} else {
-			log.Println("undef macro -", string(ch[0]))
+			log.Println("undef macro -", string(c))
 		}
 
 	default:
 		log.Println("undef key -", x)
 	}
+
+	if m == "" {
+		return
+	}
+	x = rune(m[0])
+	m = m[1:]
+	goto tco
+}
+
+func (env *Env) readch(m string) (byte, string) {
+	if m == "" {
+		c := make([]byte, 1)
+		os.Stdin.Read(c)
+		if env.mode == 1 {
+			env.macro_cur.macro += string(c[0])
+		}
+		return c[0], m
+	}
+	return m[0], m[1:]
 }
 
 type fn_arg func([]any)
