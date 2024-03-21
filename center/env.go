@@ -17,7 +17,6 @@ type Env struct {
 	vars      map[rune]any
 	macros    map[rune]string
 	macro_rec ModeMacro
-	stop      bool
 }
 
 type ModeMacro struct {
@@ -76,11 +75,6 @@ func (env *Env) kext(x rune) {
 }
 
 func (env *Env) kint(x rune) {
-	if env.stop {
-		env.stop = false
-		return
-	}
-
 	fmt.Println("KEY:", string(x))
 
 	switch x {
