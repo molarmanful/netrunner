@@ -45,6 +45,13 @@ var _0 = big.NewInt(0)
 var _1 = big.NewInt(1)
 var _10 = big.NewInt(10)
 
+func BigBoolNOT(n *big.Int) *big.Int {
+	if n.Sign() == 0 {
+		return _1
+	}
+	return _0
+}
+
 func (env *Env) Loop() {
 	for {
 		x := env.WaitCh()
@@ -116,6 +123,18 @@ func (env *Env) KInt(x rune) {
 			a := xs[1].(*big.Int)
 			b := xs[0].(*big.Int)
 			env.stack.Push(a.Exp(a, b, nil))
+		})
+
+	case '!':
+		env.Arg(1, func(xs []any) {
+			a := xs[0].(*big.Int)
+			env.stack.Push(BigBoolNOT(a))
+		})
+
+	case '?':
+		env.Arg(1, func(xs []any) {
+			a := xs[0].(*big.Int)
+			env.stack.Push(big.NewInt(int64(a.Sign())))
 		})
 
 	case 10:
