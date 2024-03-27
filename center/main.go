@@ -37,8 +37,8 @@ func main() {
 	// }()
 
 	go func() {
-		ch := make([]byte, 1)
 		for {
+			ch := make([]byte, 1)
 			os.Stdin.Read(ch)
 			env.cmds_mu.Lock()
 			env.cmds += string(ch[0])

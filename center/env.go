@@ -47,7 +47,7 @@ var _10 = big.NewInt(10)
 
 func (env *Env) Loop() {
 	for {
-		x := env.waitch()
+		x := env.WaitCh()
 		Clr()
 		env.KInt(x)
 		env.Show()
@@ -55,7 +55,7 @@ func (env *Env) Loop() {
 }
 
 func (env *Env) KInt(x rune) {
-	fmt.Println("KEY:", string(x))
+	fmt.Println("KEY:", strconv.QuoteRune(x))
 
 	switch x {
 
@@ -128,7 +128,7 @@ func (env *Env) KInt(x rune) {
 		})
 
 	case 127:
-		env.stack.Pop()
+		env.Arg(1, func(xs []any) {})
 
 	case '\\':
 		env.Arg(2, func(xs []any) {
@@ -147,12 +147,12 @@ func (env *Env) KInt(x rune) {
 		env.stack.Clear()
 
 	case '=':
-		x = env.waitch()
+		x = env.WaitCh()
 		a, _ := env.stack.Pop()
 		env.vars.Set(x, a)
 
 	case ':':
-		x = env.waitch()
+		x = env.WaitCh()
 		if a, ok := env.vars.Get(x); ok {
 			env.stack.Push(a)
 		} else {
@@ -162,7 +162,7 @@ func (env *Env) KInt(x rune) {
 	case ',':
 		if env.mode != 1 {
 			env.mode = 1
-			x = env.waitch()
+			x = env.WaitCh()
 			env.macro_rec.name = x
 			env.macro_rec.macro = ""
 		} else {
@@ -171,7 +171,7 @@ func (env *Env) KInt(x rune) {
 		}
 
 	case '.':
-		x = env.waitch()
+		x = env.WaitCh()
 		if m1, ok := env.macros.Get(x); ok {
 			env.cmds_mu.Lock()
 			env.cmds = m1 + env.cmds
@@ -181,7 +181,7 @@ func (env *Env) KInt(x rune) {
 		}
 
 	case '#':
-		x = env.waitch()
+		x = env.WaitCh()
 		if m1, ok := env.macros.Get(x); ok {
 			env.Arg(1, func(xs []any) {
 				n := xs[0].(*big.Int)
@@ -197,13 +197,13 @@ func (env *Env) KInt(x rune) {
 		}
 
 	case '[':
-		x = env.waitch()
+		x = env.WaitCh()
 		env.stacks.Set(x, arraystack.New())
 		*env.stacks.m[x] = *env.stack
 		*env.stack = *arraystack.New()
 
 	case ']':
-		x = env.waitch()
+		x = env.WaitCh()
 		if stack, ok := env.stacks.Get(x); ok {
 			it := stack.Iterator()
 			for it.End(); it.Prev(); {
@@ -220,9 +220,10 @@ func (env *Env) KInt(x rune) {
 	}
 }
 
-func (env *Env) waitch() rune {
+func (env *Env) WaitCh() rune {
 	for env.cmds == "" {
 	}
+	println(env.cmds)
 	c := rune(env.cmds[0])
 	env.cmds_mu.Lock()
 	env.cmds = env.cmds[1:]
