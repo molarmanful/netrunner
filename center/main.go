@@ -40,9 +40,9 @@ func main() {
 		for {
 			ch := make([]byte, 1)
 			os.Stdin.Read(ch)
-			env.cmds_mu.Lock()
-			env.cmds += string(ch[0])
-			env.cmds_mu.Unlock()
+			env.cmdsMu.Lock()
+			env.Cmds += string(ch[0])
+			env.cmdsMu.Unlock()
 		}
 	}()
 

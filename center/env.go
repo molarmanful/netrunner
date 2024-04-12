@@ -1,9 +1,11 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"math/big"
+	"os"
 	"strconv"
 	"sync"
 
@@ -11,34 +13,34 @@ import (
 )
 
 type Env struct {
-	cur       *big.Int
-	stack     *arraystack.Stack
-	stacks    *KeyMap[rune, *arraystack.Stack]
-	cmds      string
-	cmds_mu   sync.Mutex
-	mode      int
-	vars      *KeyMap[rune, any]
-	macros    *KeyMap[rune, string]
-	macro_rec ModeMacro
+	Cur       *big.Int                         `json:"cur"`
+	Stack     *arraystack.Stack                `json:"stack"`
+	Stacks    *KeyMap[rune, *arraystack.Stack] `json:"stacks"`
+	Cmds      string                           `json:"cmds"`
+	cmdsMu    sync.Mutex
+	Mode      int                   `json:"mode"`
+	Vars      *KeyMap[rune, any]    `json:"vars"`
+	Macros    *KeyMap[rune, string] `json:"macros"`
+	Macro_rec ModeMacro             `json:"macro_rec"`
 }
 
 func NewEnv() *Env {
 	env := &Env{
-		stack:     arraystack.New(),
-		stacks:    NewKeyMap[rune, *arraystack.Stack](),
-		cmds:      "",
-		mode:      0,
-		vars:      NewKeyMap[rune, any](),
-		macros:    NewKeyMap[rune, string](),
-		macro_rec: ModeMacro{0, ""},
+		Stack:     arraystack.New(),
+		Stacks:    NewKeyMap[rune, *arraystack.Stack](),
+		Cmds:      "",
+		Mode:      0,
+		Vars:      NewKeyMap[rune, any](),
+		Macros:    NewKeyMap[rune, string](),
+		Macro_rec: ModeMacro{0, ""},
 	}
-	env.stacks.Set('0', env.stack)
+	env.Stacks.Set('0', env.Stack)
 	return env
 }
 
 type ModeMacro struct {
-	name  rune
-	macro string
+	Name  rune   `json:"name"`
+	Macro string `json:"macro"`
 }
 
 var _0 = big.NewInt(0)
@@ -67,7 +69,7 @@ func (env *Env) KInt(x rune) {
 	switch x {
 
 	case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
-		env.stack.Push(big.NewInt(int64(x - 48)))
+		env.Stack.Push(big.NewInt(int64(x - 48)))
 
 	case ' ':
 		env.Arg(2, func(xs []any) {
@@ -75,34 +77,34 @@ func (env *Env) KInt(x rune) {
 			b := xs[0].(*big.Int)
 			c := new(big.Int)
 			c.SetString(a.Text(10)+b.Text(10), 10)
-			env.stack.Push(c)
+			env.Stack.Push(c)
 		})
 
 	case '_':
 		env.Arg(1, func(xs []any) {
 			a := xs[0].(*big.Int)
-			env.stack.Push(a.Neg(a))
+			env.Stack.Push(a.Neg(a))
 		})
 
 	case '+':
 		env.Arg(2, func(xs []any) {
 			a := xs[1].(*big.Int)
 			b := xs[0].(*big.Int)
-			env.stack.Push(a.Add(a, b))
+			env.Stack.Push(a.Add(a, b))
 		})
 
 	case '-':
 		env.Arg(2, func(xs []any) {
 			a := xs[1].(*big.Int)
 			b := xs[0].(*big.Int)
-			env.stack.Push(a.Sub(a, b))
+			env.Stack.Push(a.Sub(a, b))
 		})
 
 	case '*':
 		env.Arg(2, func(xs []any) {
 			a := xs[1].(*big.Int)
 			b := xs[0].(*big.Int)
-			env.stack.Push(a.Mul(a, b))
+			env.Stack.Push(a.Mul(a, b))
 		})
 
 	case '/':
@@ -111,8 +113,8 @@ func (env *Env) KInt(x rune) {
 			b := xs[0].(*big.Int)
 			if b.Cmp(_0) != 0 {
 				a.DivMod(a, b, b)
-				env.stack.Push(a)
-				env.stack.Push(b)
+				env.Stack.Push(a)
+				env.Stack.Push(b)
 			} else {
 				log.Println("div by zero")
 			}
@@ -122,19 +124,19 @@ func (env *Env) KInt(x rune) {
 		env.Arg(2, func(xs []any) {
 			a := xs[1].(*big.Int)
 			b := xs[0].(*big.Int)
-			env.stack.Push(a.Exp(a, b, nil))
+			env.Stack.Push(a.Exp(a, b, nil))
 		})
 
 	case '!':
 		env.Arg(1, func(xs []any) {
 			a := xs[0].(*big.Int)
-			env.stack.Push(BigBoolNOT(a))
+			env.Stack.Push(BigBoolNOT(a))
 		})
 
 	case '?':
 		env.Arg(1, func(xs []any) {
 			a := xs[0].(*big.Int)
-			env.stack.Push(big.NewInt(int64(a.Sign())))
+			env.Stack.Push(big.NewInt(int64(a.Sign())))
 		})
 
 	case 10:
@@ -142,8 +144,8 @@ func (env *Env) KInt(x rune) {
 			a := xs[0]
 			b := new(big.Int)
 			b.Set(a.(*big.Int))
-			env.stack.Push(a)
-			env.stack.Push(b)
+			env.Stack.Push(a)
+			env.Stack.Push(b)
 		})
 
 	case 127:
@@ -151,63 +153,63 @@ func (env *Env) KInt(x rune) {
 
 	case '\\':
 		env.Arg(2, func(xs []any) {
-			env.stack.Push(xs[0])
-			env.stack.Push(xs[1])
+			env.Stack.Push(xs[0])
+			env.Stack.Push(xs[1])
 		})
 
 	case '@':
 		env.Arg(3, func(xs []any) {
-			env.stack.Push(xs[1])
-			env.stack.Push(xs[0])
-			env.stack.Push(xs[2])
+			env.Stack.Push(xs[1])
+			env.Stack.Push(xs[0])
+			env.Stack.Push(xs[2])
 		})
 
 	case 'c':
-		env.stack.Clear()
+		env.Stack.Clear()
 
 	case '=':
 		x = env.WaitCh()
-		a, _ := env.stack.Pop()
-		env.vars.Set(x, a)
+		a, _ := env.Stack.Pop()
+		env.Vars.Set(x, a)
 
 	case ':':
 		x = env.WaitCh()
-		if a, ok := env.vars.Get(x); ok {
-			env.stack.Push(a)
+		if a, ok := env.Vars.Get(x); ok {
+			env.Stack.Push(a)
 		} else {
 			log.Println("undef var -", string(x))
 		}
 
 	case ',':
-		if env.mode != 1 {
-			env.mode = 1
+		if env.Mode != 1 {
+			env.Mode = 1
 			x = env.WaitCh()
-			env.macro_rec.name = x
-			env.macro_rec.macro = ""
+			env.Macro_rec.Name = x
+			env.Macro_rec.Macro = ""
 		} else {
-			env.mode = 0
-			env.macros.Set(env.macro_rec.name, env.macro_rec.macro[:len(env.macro_rec.macro)-1])
+			env.Mode = 0
+			env.Macros.Set(env.Macro_rec.Name, env.Macro_rec.Macro[:len(env.Macro_rec.Macro)-1])
 		}
 
 	case '.':
 		x = env.WaitCh()
-		if m1, ok := env.macros.Get(x); ok {
-			env.cmds_mu.Lock()
-			env.cmds = m1 + env.cmds
-			env.cmds_mu.Unlock()
+		if m1, ok := env.Macros.Get(x); ok {
+			env.cmdsMu.Lock()
+			env.Cmds = m1 + env.Cmds
+			env.cmdsMu.Unlock()
 		} else {
 			log.Println("undef macro -", string(x))
 		}
 
 	case '#':
 		x = env.WaitCh()
-		if m1, ok := env.macros.Get(x); ok {
+		if m1, ok := env.Macros.Get(x); ok {
 			env.Arg(1, func(xs []any) {
 				n := xs[0].(*big.Int)
 				for n.Cmp(_0) > 0 {
-					env.cmds_mu.Lock()
-					env.cmds = m1 + env.cmds
-					env.cmds_mu.Unlock()
+					env.cmdsMu.Lock()
+					env.Cmds = m1 + env.Cmds
+					env.cmdsMu.Unlock()
 					n.Sub(n, _1)
 				}
 			})
@@ -217,21 +219,45 @@ func (env *Env) KInt(x rune) {
 
 	case '[':
 		x = env.WaitCh()
-		env.stacks.Set(x, arraystack.New())
-		*env.stacks.m[x] = *env.stack
-		*env.stack = *arraystack.New()
+		env.Stacks.Set(x, arraystack.New())
+		*env.Stacks.m[x] = *env.Stack
+		*env.Stack = *arraystack.New()
 
 	case ']':
 		x = env.WaitCh()
-		if stack, ok := env.stacks.Get(x); ok {
+		if stack, ok := env.Stacks.Get(x); ok {
 			it := stack.Iterator()
 			for it.End(); it.Prev(); {
 				b := new(big.Int)
 				b.Set(it.Value().(*big.Int))
-				env.stack.Push(b)
+				env.Stack.Push(b)
 			}
 		} else {
 			log.Println("undef stack -", string(x))
+		}
+
+	case 'w':
+		x = env.WaitCh()
+		if f, err := os.Create(fmt.Sprint(int(x)) + ".nr"); err == nil {
+			encoder := json.NewEncoder(f)
+			if err := encoder.Encode(env); err != nil {
+				log.Println(err)
+			}
+			defer f.Close()
+		} else {
+			log.Println(err)
+		}
+
+	case 'r':
+		x = env.WaitCh()
+		if f, err := os.Open(fmt.Sprint(int(x)) + ".nr"); err == nil {
+			decode := json.NewDecoder(f)
+			if err := decode.Decode(&env); err != nil {
+				log.Println(err)
+			}
+			defer f.Close()
+		} else {
+			log.Println(err)
 		}
 
 	default:
@@ -240,15 +266,15 @@ func (env *Env) KInt(x rune) {
 }
 
 func (env *Env) WaitCh() rune {
-	for env.cmds == "" {
+	for env.Cmds == "" {
 	}
-	println(env.cmds)
-	c := rune(env.cmds[0])
-	env.cmds_mu.Lock()
-	env.cmds = env.cmds[1:]
-	env.cmds_mu.Unlock()
-	if env.mode == 1 {
-		env.macro_rec.macro += string(c)
+	println(env.Cmds)
+	c := rune(env.Cmds[0])
+	env.cmdsMu.Lock()
+	env.Cmds = env.Cmds[1:]
+	env.cmdsMu.Unlock()
+	if env.Mode == 1 {
+		env.Macro_rec.Macro += string(c)
 	}
 	return c
 }
@@ -256,13 +282,13 @@ func (env *Env) WaitCh() rune {
 type FnArg func([]any)
 
 func (env *Env) Arg(n int, f FnArg) {
-	if env.stack.Size() < n {
+	if env.Stack.Size() < n {
 		log.Println("need", n, "items")
 	} else {
 		xs := make([]any, n)
 		i := 0
 		for i < n {
-			a, _ := env.stack.Pop()
+			a, _ := env.Stack.Pop()
 			xs[i] = a
 			i++
 		}
@@ -272,10 +298,10 @@ func (env *Env) Arg(n int, f FnArg) {
 
 func (env *Env) Show() {
 
-	fmt.Println("CMDS:", strconv.Quote(env.cmds))
+	fmt.Println("CMDS:", strconv.Quote(env.Cmds))
 
 	fmt.Println("MODE:", func() string {
-		switch env.mode {
+		switch env.Mode {
 		case 1:
 			return "MACRO"
 		default:
@@ -283,22 +309,22 @@ func (env *Env) Show() {
 		}
 	}())
 
-	switch env.mode {
+	switch env.Mode {
 	case 1:
-		fmt.Println("\nRECORDING", string(env.macro_rec.name), ":", strconv.Quote(env.macro_rec.macro))
+		fmt.Println("\nRECORDING", string(env.Macro_rec.Name), ":", strconv.Quote(env.Macro_rec.Macro))
 	}
 
 	fmt.Println("\nVARS:")
-	env.vars.Each(func(v any, k rune) {
+	env.Vars.Each(func(v any, k rune) {
 		fmt.Println(string(k), ":=", v)
 	})
 
 	fmt.Println("\nMACROS:")
-	env.macros.Each(func(v string, k rune) {
+	env.Macros.Each(func(v string, k rune) {
 		fmt.Println(string(k), ":=", strconv.Quote(v))
 	})
 
-	env.stacks.Each(func(v *arraystack.Stack, k rune) {
+	env.Stacks.Each(func(v *arraystack.Stack, k rune) {
 		fmt.Println("\nSTACK", string(k), ":")
 		it := v.Iterator()
 		for it.End(); it.Prev(); {
