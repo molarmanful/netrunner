@@ -238,7 +238,7 @@ func (env *Env) KInt(x rune) {
 
 	case 'w':
 		x = env.WaitCh()
-		if f, err := os.Create(fmt.Sprint(int(x)) + ".nr"); err == nil {
+		if f, err := os.Create("env_" + fmt.Sprint(int(x)) + ".json"); err == nil {
 			encoder := json.NewEncoder(f)
 			if err := encoder.Encode(env); err != nil {
 				log.Println(err)
@@ -250,7 +250,7 @@ func (env *Env) KInt(x rune) {
 
 	case 'r':
 		x = env.WaitCh()
-		if f, err := os.Open(fmt.Sprint(int(x)) + ".nr"); err == nil {
+		if f, err := os.Open("env_" + fmt.Sprint(int(x)) + ".json"); err == nil {
 			decode := json.NewDecoder(f)
 			if err := decode.Decode(&env); err != nil {
 				log.Println(err)
