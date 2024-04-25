@@ -148,6 +148,17 @@ func (env *Env) KInt(x rune) {
 			env.Stack.Push(b)
 		})
 
+	case 'o':
+		env.Arg(2, func(xs []any) {
+			a := xs[1]
+			b := xs[0]
+			c := new(big.Int)
+			c.Set(a.(*big.Int))
+			env.Stack.Push(a)
+			env.Stack.Push(b)
+			env.Stack.Push(c)
+		})
+
 	case 127:
 		env.Arg(1, func(xs []any) {})
 
