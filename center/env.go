@@ -13,7 +13,7 @@ import (
 )
 
 type Env struct {
-	Cur       *big.Int                         `json:"cur"`
+	Cur       string                           `json:"cur"`
 	Stack     *arraystack.Stack                `json:"stack"`
 	Stacks    *KeyMap[rune, *arraystack.Stack] `json:"stacks"`
 	Cmds      string                           `json:"cmds"`
@@ -26,6 +26,7 @@ type Env struct {
 
 func NewEnv() *Env {
 	env := &Env{
+		Cur:       "",
 		Stack:     arraystack.New(),
 		Stacks:    NewKeyMap[rune, *arraystack.Stack](),
 		Cmds:      "",
@@ -69,15 +70,27 @@ func (env *Env) KInt(x rune) {
 	switch x {
 
 	case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
-		env.Stack.Push(big.NewInt(int64(x - 48)))
+		env.Cur += string(x)
 
 	case ' ':
+		a := new(big.Int)
+		a.SetString(env.Cur, 10)
+		env.Stack.Push(a)
+		env.Cur = ""
+
+	case '&':
 		env.Arg(2, func(xs []any) {
 			a := xs[1].(*big.Int)
 			b := xs[0].(*big.Int)
 			c := new(big.Int)
-			c.SetString(a.Text(10)+b.Text(10), 10)
+			c.SetString(a.String()+b.String(), 10)
 			env.Stack.Push(c)
+		})
+
+	case '\t':
+		env.Arg(1, func(xs []any) {
+			a := xs[0].(*big.Int)
+			env.Cur = a.String()
 		})
 
 	case '_':
@@ -334,6 +347,8 @@ func (env *Env) Show() {
 	env.Macros.Each(func(v string, k rune) {
 		fmt.Println(string(k), ":=", strconv.Quote(v))
 	})
+
+	fmt.Println("\nCUR:", env.Cur)
 
 	env.Stacks.Each(func(v *arraystack.Stack, k rune) {
 		fmt.Println("\nSTACK", string(k), ":")
